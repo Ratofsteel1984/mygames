@@ -2382,7 +2382,7 @@ function drawStartScreen(){
     ctx.fillStyle = 'rgba(220, 230, 255, ' + (lightningFlash / 15) + ')';
     ctx.fillRect(0, 0, TOTAL_W, TOTAL_H);
   }
-  drawDoomguySilhouette(TOTAL_W * 0.15, horizon + 20);
+  drawDoomguy(TOTAL_W * 0.15, horizon + 20, 1.0);
   var titleY = TOTAL_H * 0.08;
   ctx.fillStyle = 'rgba(0,0,0,0.7)';
   ctx.fillRect(0, titleY - 80, TOTAL_W, 200);
@@ -2463,25 +2463,552 @@ function drawStartScreen(){
   if (state === 'ABOUT') drawAboutScreen();
 }
 
-function drawDoomguySilhouette(x, y){
-  ctx.fillStyle = '#0a0a0a';
-  ctx.fillRect(x - 35, y + 40, 25, 60);
-  ctx.fillRect(x + 10, y + 40, 25, 60);
-  ctx.fillRect(x - 40, y - 30, 80, 75);
-  ctx.fillRect(x - 30, y - 80, 60, 55);
-  ctx.fillStyle = '#8b0000';
-  ctx.fillRect(x - 22, y - 65, 44, 18);
-  ctx.fillStyle = '#ff2222';
-  ctx.globalAlpha = 0.7 + 0.3 * Math.sin(cachedTimeMs / 200);
-  ctx.fillRect(x - 16, y - 60, 8, 8);
-  ctx.fillRect(x + 8, y - 60, 8, 8);
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = '#0a0a0a';
-  ctx.fillRect(x + 35, y - 15, 90, 15);
-  ctx.fillRect(x + 120, y - 20, 15, 25);
-  ctx.fillRect(x + 35, y + 10, 40, 8);
-  ctx.fillRect(x - 55, y - 15, 15, 70);
-  ctx.fillRect(x + 30, y - 15, 15, 70);
+// ============================================================
+// DOOMGUY — процедурный пиксель-арт спрайт (вид спереди)
+// ============================================================
+var heroAnim = {
+  breath: 0,
+  breathDir: 1,
+  blinkTimer: 0,
+  blink: 0,
+  visorPulse: 0,
+  walkFrame: 0
+};
+
+function updateHeroAnim(){
+  // Дыхание: плавное ±1.5px
+  heroAnim.breath += heroAnim.breathDir * 0.08;
+  if (heroAnim.breath > 1.5){ heroAnim.breath = 1.5; heroAnim.breathDir = -1; }
+  if (heroAnim.breath < -1.5){ heroAnim.breath = -1.5; heroAnim.breathDir = 1; }
+
+  // Моргание
+  heroAnim.blinkTimer++;
+  if (heroAnim.blinkTimer > 180){
+    heroAnim.blink = 6;
+    heroAnim.blinkTimer = 0;
+  }
+  if (heroAnim.blink > 0) heroAnim.blink--;
+
+  // Пульс визора
+  heroAnim.visorPulse = 0.5 + 0.5 * Math.sin(cachedTimeMs / 220);
+}
+
+// Палитра Doomguy
+var HERO_COL = {
+  // Шлем
+  helmDark:   '#142818',
+  helmMid:    '#24402a',
+  helmLight:  '#3a6a42',
+  helmHi:     '#5a9a62',
+  helmShadow: '#0a1408',
+  // Визор
+  visor:      '#050505',
+  visorFrame: '#2a2a2a',
+  visorGlow:  '#ff1a1a',
+  visorDim:   '#8b0000',
+  // Броня
+  armorDark:  '#18381e',
+  armorMid:   '#2a6634',
+  armorLight: '#42a04c',
+  armorHi:    '#6ed878',
+  armorWorn:  '#1e4a26',
+  // Кожа
+  skin:       '#c99a6a',
+  skinDark:   '#8a6a4a',
+  skinShadow: '#5a4030',
+  // Металл
+  metalDark:  '#2a2a2a',
+  metal:      '#5a5a5a',
+  metalLight: '#8a8a8a',
+  metalHi:    '#b0b0b0',
+  metalRust:  '#6a3a1a',
+  // Оружие
+  gunMetal:   '#1a1a1a',
+  gunMetalLt: '#3a3a3a',
+  gunWood:    '#5a3a1e',
+  gunWoodLt:  '#7a5a2e',
+  // Кровь
+  blood:      '#7a0000',
+  bloodDark:  '#4a0000',
+  bloodBright:'#aa1010',
+  // Контур
+  outline:    '#000000'
+};
+
+function drawDoomguy(x, y, scale){
+  scale = scale || 1;
+  updateHeroAnim();
+
+  var b = heroAnim.breath;
+  var s = scale;
+  var cx = x;
+  var baseY = y;
+
+  ctx.save();
+
+  // ============ ТЕНЬ ПОД НОГАМИ ============
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.beginPath();
+  ctx.ellipse(cx, baseY + 3, 46 * s, 9 * s, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath();
+  ctx.ellipse(cx, baseY + 6, 60 * s, 12 * s, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // ============ НОГИ ============
+  // Левая нога
+  var legTopY = baseY - 62 * s + b * 0.3;
+  ctx.fillStyle = HERO_COL.armorShadow || HERO_COL.armorDark;
+  ctx.fillRect(cx - 30 * s, legTopY, 22 * s, 58 * s);
+  ctx.fillStyle = HERO_COL.armorDark;
+  ctx.fillRect(cx - 28 * s, legTopY, 18 * s, 56 * s);
+  ctx.fillStyle = HERO_COL.armorMid;
+  ctx.fillRect(cx - 26 * s, legTopY + 2 * s, 14 * s, 52 * s);
+  // блик на ноге
+  ctx.fillStyle = HERO_COL.armorLight;
+  ctx.fillRect(cx - 24 * s, legTopY + 4 * s, 3 * s, 40 * s);
+  // Наколенник
+  ctx.fillStyle = HERO_COL.metalDark;
+  ctx.fillRect(cx - 28 * s, legTopY + 22 * s, 18 * s, 10 * s);
+  ctx.fillStyle = HERO_COL.metal;
+  ctx.fillRect(cx - 26 * s, legTopY + 23 * s, 14 * s, 6 * s);
+  ctx.fillStyle = HERO_COL.metalLight;
+  ctx.fillRect(cx - 24 * s, legTopY + 24 * s, 10 * s, 2 * s);
+  // Ремешки на ноге
+  ctx.fillStyle = HERO_COL.metalDark;
+  ctx.fillRect(cx - 28 * s, legTopY + 42 * s, 18 * s, 2 * s);
+  ctx.fillRect(cx - 28 * s, legTopY + 52 * s, 18 * s, 2 * s);
+
+  // Правая нога
+  ctx.fillStyle = HERO_COL.armorShadow || HERO_COL.armorDark;
+  ctx.fillRect(cx + 8 * s, legTopY, 22 * s, 58 * s);
+  ctx.fillStyle = HERO_COL.armorDark;
+  ctx.fillRect(cx + 10 * s, legTopY, 18 * s, 56 * s);
+  ctx.fillStyle = HERO_COL.armorMid;
+  ctx.fillRect(cx + 12 * s, legTopY + 2 * s, 14 * s, 52 * s);
+  ctx.fillStyle = HERO_COL.armorLight;
+  ctx.fillRect(cx + 14 * s, legTopY + 4 * s, 3 * s, 40 * s);
+  // Наколенник
+  ctx.fillStyle = HERO_COL.metalDark;
+  ctx.fillRect(cx + 10 * s, legTopY + 22 * s, 18 * s, 10 * s);
+  ctx.fillStyle = HERO_COL.metal;
+  ctx.fillRect(cx + 12 * s, legTopY + 23 * s, 14 * s, 6 * s);
+  ctx.fillStyle = HERO_COL.metalLight;
+  ctx.fillRect(cx + 14 * s, legTopY + 24 * s, 10 * s, 2 * s);
+  ctx.fillStyle = HERO_COL.metalDark;
+  ctx.fillRect(cx + 10 * s, legTopY + 42 * s, 18 * s, 2 * s);
+  ctx.fillRect(cx + 10 * s, legTopY + 52 * s, 18 * s, 2 * s);
+
+  // Ботинки
+  // левый
+  ctx.fillStyle = HERO_COL.metalDark;
+  ctx.fillRect(cx - 34 * s, baseY - 14 * s, 30 * s, 16 * s);
+  ctx.fillStyle = HERO_COL.metal;
+  ctx.fillRect(cx - 32 * s, baseY - 12 * s, 26 * s, 8 * s);
+  ctx.fillStyle = HERO_COL.metalLight;
+  ctx.fillRect(cx - 30 * s, baseY - 11 * s, 22 * s, 2 * s);
+  ctx.fillStyle = HERO_COL.outline;
+  ctx.fillRect(cx - 34 * s, baseY + 1 * s, 30 * s, 2 * s);
+  // правый
+  ctx.fillStyle = HERO_COL.metalDark;
+  ctx.fillRect(cx + 4 * s, baseY - 14 * s, 30 * s, 16 * s);
+  ctx.fillStyle = HERO_COL.metal;
+  ctx.fillRect(cx + 6 * s, baseY - 12 * s, 26 * s, 8 * s);
+  ctx.fillStyle = HERO_COL.metalLight;
+  ctx.fillRect(cx + 8 * s, baseY - 11 * s, 22 * s, 2 * s);
+  ctx.fillStyle = HERO_COL.outline;
+  ctx.fillRect(cx + 4 * s, baseY + 1 * s, 30 * s, 2 * s);
+
+  // ============ ТОРС ============
+  var torsoTop = baseY - 128 * s + b * 0.8;
+  var torsoH = 70 * s;
+  var torsoW = 76 * s;
+  var torsoX = cx - torsoW / 2;
+
+  // Тень под торсом (объём)
+  ctx.fillStyle = HERO_COL.armorShadow || HERO_COL.armorDark;
+  ctx.fillRect(torsoX - 2 * s, torsoTop + 4 * s, torsoW + 4 * s, torsoH);
+
+  // Основной корпус
+  ctx.fillStyle = HERO_COL.armorDark;
+  ctx.fillRect(torsoX, torsoTop, torsoW, torsoH);
+  ctx.fillStyle = HERO_COL.armorMid;
+  ctx.fillRect(torsoX + 3 * s, torsoTop + 2 * s, torsoW - 6 * s, torsoH - 4 * s);
+
+  // Боковые светлые грани (объём)
+  ctx.fillStyle = HERO_COL.armorLight;
+  ctx.fillRect(torsoX + 5 * s, torsoTop + 4 * s, 4 * s, torsoH - 10 * s);
+  ctx.fillStyle = HERO_COL.armorDark;
+  ctx.fillRect(torsoX + torsoW - 9 * s, torsoTop + 4 * s, 4 * s, torsoH - 10 * s);
+
+  // Верхний наплечный пояс
+  ctx.fillStyle = HERO_COL.armorHi;
+  ctx.fillRect(torsoX + 6 * s, torsoTop + 6 * s, torsoW - 12 * s, 5 * s);
+
+  // ============ НАГРУДНАЯ ПЛАСТИНА ============
+  var plateX = torsoX + 14 * s;
+  var plateY = torsoTop + 14 * s;
+  var plateW = torsoW - 28 * s;
+  var plateH = 40 * s;
+  // тень
+  ctx.fillStyle = HERO_COL.armorShadow || HERO_COL.armorDark;
+  ctx.fillRect(plateX - 2 * s, plateY + 2 * s, plateW + 4 * s, plateH);
+  // пластина
+  ctx.fillStyle = HERO_COL.armorHi;
+  ctx.fillRect(plateX, plateY, plateW, plateH);
+  ctx.fillStyle = HERO_COL.armorLight;
+  ctx.fillRect(plateX + 2 * s, plateY + 2 * s, plateW - 4 * s, plateH - 4 * s);
+  ctx.fillStyle = HERO_COL.armorMid;
+  ctx.fillRect(plateX + 6 * s, plateY + 6 * s, plateW - 12 * s, plateH - 12 * s);
+  // центральная вертикальная линия (фаска)
+  ctx.fillStyle = HERO_COL.armorHi;
+  ctx.fillRect(plateX + plateW/2 - 1 * s, plateY + 4 * s, 2 * s, plateH - 8 * s);
+  // рёбра жёсткости
+  ctx.fillStyle = HERO_COL.armorDark;
+  ctx.fillRect(plateX + 4 * s, plateY + 12 * s, plateW - 8 * s, 2 * s);
+  ctx.fillRect(plateX + 4 * s, plateY + 22 * s, plateW - 8 * s, 2 * s);
+  ctx.fillRect(plateX + 4 * s, plateY + 32 * s, plateW - 8 * s, 2 * s);
+
+  // Трещина на пластине
+  ctx.fillStyle = HERO_COL.outline;
+  ctx.fillRect(plateX + plateW/2 - 4 * s, plateY + 8 * s, 2 * s, 6 * s);
+  ctx.fillRect(plateX + plateW/2 - 2 * s, plateY + 14 * s, 2 * s, 5 * s);
+  ctx.fillRect(plateX + plateW/2 + 1 * s, plateY + 19 * s, 2 * s, 7 * s);
+
+  // Кровь на пластине
+  ctx.fillStyle = HERO_COL.blood;
+  ctx.fillRect(plateX + 8 * s, plateY + plateH - 12 * s, 4 * s, 8 * s);
+  ctx.fillRect(plateX + 10 * s, plateY + plateH - 4 * s, 3 * s, 4 * s);
+  ctx.fillStyle = HERO_COL.bloodBright;
+  ctx.fillRect(plateX + 9 * s, plateY + plateH - 10 * s, 2 * s, 3 * s);
+  // Вторая капля
+  ctx.fillStyle = HERO_COL.bloodDark;
+  ctx.fillRect(plateX + plateW - 12 * s, plateY + plateH - 8 * s, 3 * s, 6 * s);
+
+  // Заклёпки на пластине
+  ctx.fillStyle = HERO_COL.metalLight;
+  ctx.fillRect(plateX + 3 * s, plateY + 3 * s, 2 * s, 2 * s);
+  ctx.fillRect(plateX + plateW - 5 * s, plateY + 3 * s, 2 * s, 2 * s);
+  ctx.fillRect(plateX + 3 * s, plateY + plateH - 5 * s, 2 * s, 2 * s);
+  ctx.fillRect(plateX + plateW - 5 * s, plateY + plateH - 5 * s, 2 * s, 2 * s);
+
+  // ============ НАПЛЕЧНИКИ ============
+  var shTop = torsoTop - 16 * s;
+  var shH = 34 * s;
+  // Левый
+  ctx.fillStyle = HERO_COL.armorShadow || HERO_COL.armorDark;
+  ctx.fillRect(cx - 60 * s, shTop + 2 * s, 32 * s, shH);
+  ctx.fillStyle = HERO_COL.armorDark;
+  ctx.fillRect(cx - 58 * s, shTop, 30 * s, shH);
+  ctx.fillStyle = HERO_COL.armorMid;
+  ctx.fillRect(cx - 56 * s, shTop + 2 * s, 26 * s, shH - 4 * s);
+  ctx.fillStyle = HERO_COL.armorLight;
+  ctx.fillRect(cx - 54 * s, shTop + 4 * s, 20 * s, 4 * s);
+  // Шипы на левом наплечнике (3 шт.)
+  ctx.fillStyle = HERO_COL.metalDark;
+  ctx.beginPath();
+  ctx.moveTo(cx - 56 * s, shTop);
+  ctx.lineTo(cx - 54 * s, shTop - 10 * s);
+  ctx.lineTo(cx - 52 * s, shTop);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(cx - 46 * s, shTop);
+  ctx.lineTo(cx - 44 * s, shTop - 12 * s);
+  ctx.lineTo(cx - 42 * s, shTop);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(cx - 36 * s, shTop);
+  ctx.lineTo(cx - 34 * s, shTop - 10 * s);
+  ctx.lineTo(cx - 32 * s, shTop);
+  ctx.closePath();
+  ctx.fill();
+  // Блик на шипах
+  ctx.fillStyle = HERO_COL.metalLight;
+  ctx.fillRect(cx - 55 * s, shTop - 8 * s, 1 * s, 6 * s);
+  ctx.fillRect(cx - 45 * s, shTop - 10 * s, 1 * s, 8 * s);
+  ctx.fillRect(cx - 35 * s, shTop - 8 * s, 1 * s, 6 * s);
+  // Заклёпки
+  ctx.fillStyle = HERO_COL.metalLight;
+  ctx.fillRect(cx - 56 * s, shTop + 8 * s, 2 * s, 2 * s);
+  ctx.fillRect(cx - 56 * s, shTop + 20 * s, 2 * s, 2 * s);
+  ctx.fillRect(cx - 38 * s, shTop + 8 * s, 2 * s, 2 * s);
+  ctx.fillRect(cx - 38 * s, shTop + 20 * s, 2 * s, 2 * s);
+
+  // Правый (симметрично)
+  ctx.fillStyle = HERO_COL.armorShadow || HERO_COL.armorDark;
+  ctx.fillRect(cx + 28 * s, shTop + 2 * s, 32 * s, shH);
+  ctx.fillStyle = HERO_COL.armorDark;
+  ctx.fillRect(cx + 28 * s, shTop, 30 * s, shH);
+  ctx.fillStyle = HERO_COL.armorMid;
+  ctx.fillRect(cx + 30 * s, shTop + 2 * s, 26 * s, shH - 4 * s);
+  ctx.fillStyle = HERO_COL.armorLight;
+  ctx.fillRect(cx + 34 * s, shTop + 4 * s, 20 * s, 4 * s);
+  ctx.fillStyle = HERO_COL.metalDark;
+  ctx.beginPath();
+  ctx.moveTo(cx + 32 * s, shTop);
+  ctx.lineTo(cx + 34 * s, shTop - 10 * s);
+  ctx.lineTo(cx + 36 * s, shTop);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(cx + 42 * s, shTop);
+  ctx.lineTo(cx + 44 * s, shTop - 12 * s);
+  ctx.lineTo(cx + 46 * s, shTop);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(cx + 52 * s, shTop);
+  ctx.lineTo(cx + 54 * s, shTop - 10 * s);
+  ctx.lineTo(cx + 56 * s, shTop);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = HERO_COL.metalLight;
+  ctx.fillRect(cx + 33 * s, shTop - 8 * s, 1 * s, 6 * s);
+  ctx.fillRect(cx + 43 * s, shTop - 10 * s, 1 * s, 8 * s);
+  ctx.fillRect(cx + 53 * s, shTop - 8 * s, 1 * s, 6 * s);
+  ctx.fillRect(cx + 54 * s, shTop + 8 * s, 2 * s, 2 * s);
+  ctx.fillRect(cx + 54 * s, shTop + 20 * s, 2 * s, 2 * s);
+  ctx.fillRect(cx + 36 * s, shTop + 8 * s, 2 * s, 2 * s);
+  ctx.fillRect(cx + 36 * s, shTop + 20 * s, 2 * s, 2 * s);
+
+  // ============ РУКИ ============
+  var armY = shTop + shH - 2 * s;
+  // ЛЕВАЯ РУКА (на бедре)
+  // плечо
+  ctx.fillStyle = HERO_COL.armorDark;
+  ctx.fillRect(cx - 54 * s, armY, 20 * s, 26 * s);
+  ctx.fillStyle = HERO_COL.armorMid;
+  ctx.fillRect(cx - 52 * s, armY + 2 * s, 16 * s, 22 * s);
+  ctx.fillStyle = HERO_COL.armorLight;
+  ctx.fillRect(cx - 50 * s, armY + 2 * s, 3 * s, 20 * s);
+  // предплечье
+  ctx.fillStyle = HERO_COL.armorDark;
+  ctx.fillRect(cx - 52 * s, armY + 26 * s, 16 * s, 30 * s);
+  ctx.fillStyle = HERO_COL.armorMid;
+  ctx.fillRect(cx - 50 * s, armY + 28 * s, 12 * s, 26 * s);
+  // пластина на предплечье
+  ctx.fillStyle = HERO_COL.metalDark;
+  ctx.fillRect(cx - 52 * s, armY + 30 * s, 16 * s, 8 * s);
+  ctx.fillStyle = HERO_COL.metal;
+  ctx.fillRect(cx - 50 * s, armY + 31 * s, 12 * s, 6 * s);
+  ctx.fillStyle = HERO_COL.metalLight;
+  ctx.fillRect(cx - 48 * s, armY + 32 * s, 8 * s, 2 * s);
+  // перчатка
+  ctx.fillStyle = HERO_COL.metalDark;
+  ctx.fillRect(cx - 52 * s, armY + 54 * s, 16 * s, 12 * s);
+  ctx.fillStyle = HERO_COL.metal;
+  ctx.fillRect(cx - 50 * s, armY + 56 * s, 12 * s, 8 * s);
+  ctx.fillStyle = HERO_COL.outline;
+  ctx.fillRect(cx - 50 * s, armY + 56 * s, 12 * s, 1 * s);
+
+  // ПРАВАЯ РУКА (держит дробовик)
+  ctx.fillStyle = HERO_COL.armorDark;
+  ctx.fillRect(cx + 34 * s, armY, 20 * s, 26 * s);
+  ctx.fillStyle = HERO_COL.armorMid;
+  ctx.fillRect(cx + 36 * s, armY + 2 * s, 16 * s, 22 * s);
+  ctx.fillStyle = HERO_COL.armorLight;
+  ctx.fillRect(cx + 38 * s, armY + 2 * s, 3 * s, 20 * s);
+  // предплечье
+  ctx.fillStyle = HERO_COL.armorDark;
+  ctx.fillRect(cx + 36 * s, armY + 26 * s, 16 * s, 26 * s);
+  ctx.fillStyle = HERO_COL.armorMid;
+  ctx.fillRect(cx + 38 * s, armY + 28 * s, 12 * s, 22 * s);
+  ctx.fillStyle = HERO_COL.metalDark;
+  ctx.fillRect(cx + 36 * s, armY + 28 * s, 16 * s, 8 * s);
+  ctx.fillStyle = HERO_COL.metal;
+  ctx.fillRect(cx + 38 * s, armY + 29 * s, 12 * s, 6 * s);
+  ctx.fillStyle = HERO_COL.metalLight;
+  ctx.fillRect(cx + 40 * s, armY + 30 * s, 8 * s, 2 * s);
+  // перчатка на цевье
+  ctx.fillStyle = HERO_COL.skinDark;
+  ctx.fillRect(cx + 36 * s, armY + 50 * s, 16 * s, 12 * s);
+  ctx.fillStyle = HERO_COL.skin;
+  ctx.fillRect(cx + 38 * s, armY + 52 * s, 12 * s, 8 * s);
+  // пальцы
+  ctx.fillStyle = HERO_COL.skinShadow;
+  ctx.fillRect(cx + 38 * s, armY + 54 * s, 2 * s, 6 * s);
+  ctx.fillRect(cx + 42 * s, armY + 54 * s, 2 * s, 6 * s);
+  ctx.fillRect(cx + 46 * s, armY + 54 * s, 2 * s, 6 * s);
+
+  // ============ ГОЛОВА / ШЛЕМ ============
+  var headTop = shTop - 50 * s + b * 0.5;
+  var headH = 50 * s;
+  var headW = 56 * s;
+  var headX = cx - headW / 2;
+
+  // Шея
+  ctx.fillStyle = HERO_COL.skinShadow;
+  ctx.fillRect(cx - 10 * s, headTop + headH - 6 * s, 20 * s, 10 * s);
+  ctx.fillStyle = HERO_COL.skinDark;
+  ctx.fillRect(cx - 8 * s, headTop + headH - 6 * s, 16 * s, 8 * s);
+
+  // Тень под шлемом
+  ctx.fillStyle = HERO_COL.helmShadow;
+  ctx.fillRect(headX - 2 * s, headTop + 3 * s, headW + 4 * s, headH);
+
+  // Основа шлема
+  ctx.fillStyle = HERO_COL.helmDark;
+  ctx.fillRect(headX, headTop, headW, headH);
+  ctx.fillStyle = HERO_COL.helmMid;
+  ctx.fillRect(headX + 2 * s, headTop + 2 * s, headW - 4 * s, headH - 4 * s);
+  // верхняя грань
+  ctx.fillStyle = HERO_COL.helmLight;
+  ctx.fillRect(headX + 4 * s, headTop + 4 * s, headW - 8 * s, 5 * s);
+  ctx.fillStyle = HERO_COL.helmHi;
+  ctx.fillRect(headX + 8 * s, headTop + 5 * s, headW - 16 * s, 2 * s);
+
+  // Боковые "уши" шлема (характерные выпуклости)
+  ctx.fillStyle = HERO_COL.helmDark;
+  ctx.fillRect(headX - 4 * s, headTop + 14 * s, 6 * s, 18 * s);
+  ctx.fillRect(headX + headW - 2 * s, headTop + 14 * s, 6 * s, 18 * s);
+  ctx.fillStyle = HERO_COL.helmMid;
+  ctx.fillRect(headX - 3 * s, headTop + 15 * s, 4 * s, 16 * s);
+  ctx.fillRect(headX + headW - 1 * s, headTop + 15 * s, 4 * s, 16 * s);
+
+  // Верхняя часть визора — "брови" (тёмная полоса)
+  ctx.fillStyle = HERO_COL.visorFrame;
+  ctx.fillRect(headX + 4 * s, headTop + 14 * s, headW - 8 * s, 3 * s);
+  ctx.fillStyle = HERO_COL.metalDark;
+  ctx.fillRect(headX + 4 * s, headTop + 14 * s, headW - 8 * s, 1 * s);
+
+  // ВИЗОР
+  var visorX = headX + 6 * s;
+  var visorY = headTop + 18 * s;
+  var visorW = headW - 12 * s;
+  var visorH = 16 * s;
+  // внешняя рамка
+  ctx.fillStyle = HERO_COL.metalDark;
+  ctx.fillRect(visorX - 2 * s, visorY - 2 * s, visorW + 4 * s, visorH + 4 * s);
+  ctx.fillStyle = HERO_COL.metal;
+  ctx.fillRect(visorX - 1 * s, visorY - 1 * s, visorW + 2 * s, visorH + 2 * s);
+  // тёмное стекло
+  ctx.fillStyle = HERO_COL.visor;
+  ctx.fillRect(visorX, visorY, visorW, visorH);
+  // отблеск на визоре
+  ctx.fillStyle = 'rgba(80,80,120,0.4)';
+  ctx.fillRect(visorX, visorY, visorW, 3 * s);
+
+  // Глаза / свечение
+  if (heroAnim.blink > 0){
+    // моргание — узкая яркая линия
+    ctx.fillStyle = HERO_COL.visorGlow;
+    ctx.globalAlpha = 0.5;
+    ctx.fillRect(visorX + 4 * s, visorY + visorH/2 - 1 * s, visorW - 8 * s, 2 * s);
+    ctx.globalAlpha = 1;
+  } else {
+    var glow = heroAnim.visorPulse;
+    // левый глаз
+    ctx.fillStyle = HERO_COL.visorGlow;
+    ctx.globalAlpha = 0.7 + 0.3 * glow;
+    ctx.fillRect(visorX + 5 * s, visorY + 5 * s, 10 * s, 6 * s);
+    // правый глаз
+    ctx.fillRect(visorX + visorW - 15 * s, visorY + 5 * s, 10 * s, 6 * s);
+    // яркие центры
+    ctx.fillStyle = '#ffaaaa';
+    ctx.globalAlpha = 0.9;
+    ctx.fillRect(visorX + 7 * s, visorY + 6 * s, 3 * s, 2 * s);
+    ctx.fillRect(visorX + visorW - 13 * s, visorY + 6 * s, 3 * s, 2 * s);
+    // свечение-ореол
+    ctx.fillStyle = HERO_COL.visorGlow;
+    ctx.globalAlpha = 0.25 * glow;
+    ctx.fillRect(visorX + 2 * s, visorY + 2 * s, 16 * s, 12 * s);
+    ctx.fillRect(visorX + visorW - 18 * s, visorY + 2 * s, 16 * s, 12 * s);
+    ctx.globalAlpha = 1;
+  }
+
+  // Нижняя часть визора — "рот" решётка (вентиляция)
+  var mouthY = headTop + 36 * s;
+  ctx.fillStyle = HERO_COL.metalDark;
+  ctx.fillRect(headX + 8 * s, mouthY, headW - 16 * s, 12 * s);
+  ctx.fillStyle = HERO_COL.visor;
+  for (var m = 0; m < 4; m++){
+    ctx.fillRect(headX + 10 * s + m * 8 * s, mouthY + 2 * s, 4 * s, 8 * s);
+  }
+  // болты по краям рта
+  ctx.fillStyle = HERO_COL.metalLight;
+  ctx.fillRect(headX + 6 * s, mouthY + 4 * s, 2 * s, 2 * s);
+  ctx.fillRect(headX + headW - 8 * s, mouthY + 4 * s, 2 * s, 2 * s);
+
+  // Царапины на шлеме
+  ctx.fillStyle = HERO_COL.helmShadow;
+  ctx.fillRect(headX + 10 * s, headTop + 8 * s, 2 * s, 4 * s);
+  ctx.fillRect(headX + 14 * s, headTop + 10 * s, 2 * s, 3 * s);
+  ctx.fillRect(headX + headW - 14 * s, headTop + 7 * s, 2 * s, 5 * s);
+  // потёртость-блик
+  ctx.fillStyle = HERO_COL.helmHi;
+  ctx.fillRect(headX + 6 * s, headTop + 6 * s, 2 * s, 3 * s);
+  ctx.fillRect(headX + headW - 10 * s, headTop + 6 * s, 2 * s, 3 * s);
+
+  // ============ ДРОБОВИК ============
+  // Позиция: в правой руке, ствол смотрит вправо
+  var gunX = cx + 36 * s;
+  var gunY = armY + 48 * s;
+
+  // Приклад (дерево)
+  ctx.fillStyle = HERO_COL.gunWood;
+  ctx.fillRect(gunX - 24 * s, gunY + 2 * s, 16 * s, 10 * s);
+  ctx.fillStyle = HERO_COL.gunWoodLt;
+  ctx.fillRect(gunX - 22 * s, gunY + 3 * s, 12 * s, 3 * s);
+  ctx.fillStyle = HERO_COL.outline;
+  ctx.fillRect(gunX - 24 * s, gunY + 11 * s, 16 * s, 1 * s);
+
+  // Ресивер (металл)
+  ctx.fillStyle = HERO_COL.gunMetal;
+  ctx.fillRect(gunX - 8 * s, gunY - 2 * s, 16 * s, 18 * s);
+  ctx.fillStyle = HERO_COL.gunMetalLt;
+  ctx.fillRect(gunX - 6 * s, gunY, 12 * s, 3 * s);
+  // окно выброса гильзы
+  ctx.fillStyle = HERO_COL.outline;
+  ctx.fillRect(gunX, gunY + 2 * s, 4 * s, 4 * s);
+
+  // Спусковая скоба
+  ctx.strokeStyle = HERO_COL.gunMetal;
+  ctx.lineWidth = 2 * s;
+  ctx.beginPath();
+  ctx.arc(gunX + 2 * s, gunY + 14 * s, 5 * s, 0, Math.PI);
+  ctx.stroke();
+
+  // Цевьё (дерево, рифлёное)
+  ctx.fillStyle = HERO_COL.gunWood;
+  ctx.fillRect(gunX + 8 * s, gunY + 2 * s, 22 * s, 10 * s);
+  ctx.fillStyle = HERO_COL.gunWoodLt;
+  ctx.fillRect(gunX + 10 * s, gunY + 3 * s, 18 * s, 2 * s);
+  // рифление
+  ctx.fillStyle = HERO_COL.outline;
+  for (var rf = 0; rf < 5; rf++){
+    ctx.fillRect(gunX + 10 * s + rf * 4 * s, gunY + 5 * s, 1 * s, 5 * s);
+  }
+
+  // Ствол (металл)
+  ctx.fillStyle = HERO_COL.gunMetal;
+  ctx.fillRect(gunX + 30 * s, gunY + 1 * s, 46 * s, 10 * s);
+  ctx.fillStyle = HERO_COL.gunMetalLt;
+  ctx.fillRect(gunX + 30 * s, gunY + 2 * s, 46 * s, 3 * s);
+  ctx.fillStyle = HERO_COL.metalDark;
+  ctx.fillRect(gunX + 30 * s, gunY + 10 * s, 46 * s, 1 * s);
+
+  // Вентиляционная планка на стволе
+  ctx.fillStyle = HERO_COL.outline;
+  for (var vp = 0; vp < 6; vp++){
+    ctx.fillRect(gunX + 36 * s + vp * 6 * s, gunY + 4 * s, 2 * s, 4 * s);
+  }
+
+  // Мушка на конце
+  ctx.fillStyle = HERO_COL.gunMetal;
+  ctx.fillRect(gunX + 74 * s, gunY - 4 * s, 4 * s, 6 * s);
+  ctx.fillStyle = HERO_COL.metalLight;
+  ctx.fillRect(gunX + 75 * s, gunY - 3 * s, 2 * s, 2 * s);
+
+  // ============ ОБВОДКА (главные контуры) ============
+  ctx.strokeStyle = HERO_COL.outline;
+  ctx.lineWidth = 2 * s;
+  ctx.strokeRect(headX, headTop, headW, headH);
+  ctx.strokeRect(torsoX, torsoTop, torsoW, torsoH);
+
+  ctx.restore();
 }
 
 function drawLegendScreen(){
