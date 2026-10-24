@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#050508">
+<title>Song of Arrakis</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500&family=Julius+Sans+One&display=swap');
+
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{
+    width:100%;height:100%;overflow:hidden;background:#050508;
+    font-family:ui-rounded,-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+    color:#e8e6f0;-webkit-user-select:none;user-select:none;overscroll-behavior:none;
+  }
+  #c{position:fixed;inset:0;display:block;touch-action:none}
+
+  /* HUD */
+  #hud{
+    position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 12px);
+    padding:0 20px;display:flex;flex-direction:column;gap:8px;
+    pointer-events:none;z-index:5;opacity:0;transition:opacity 1.2s;
+  }
+  #hud.on{opacity:1}
+  .top-row{display:flex;justify-content:space-between;align-items:flex-start;}
+  
+  #levelInfo{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#c9a87c;}
+  #goalInfo{font-size:12px;letter-spacing:.1em;color:rgba(255,255,255,.5);}
+  #pctInfo{font-size:14px;font-weight:bold;color:#8fd3ff;}
+
+  #bar-container{width:100%;height:2px;background:rgba(255,255,255,.08); margin-top:4px;}
+  #bar{height:100%;width:0%;background:linear-gradient(90deg,#c9a87c,#8fd3ff);transition:width .3s;}
+
+  #lives{display:flex;gap:8px;margin-top:4px;}
+  .grain{width:6px;height:6px;border-radius:50%;background:#c9a87c;box-shadow:0 0 10px #c9a87c;transition:all .5s;}
+  .grain.off{background:rgba(255,255,255,.1);box-shadow:none;transform:scale(.5);}
+
+  .icon-btn {
+    pointer-events: auto;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(201,168,124,0.3);
+    color: #c9a87c; border-radius: 50%; width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; cursor: pointer; transition: 0.2s;
+  }
+  .icon-btn:active { transform: scale(0.9); }
+
+  .overlay{
+    position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;padding:30px;text-align:center;
+    background:radial-gradient(ellipse at 50% 40%,rgba(10,10,15,.4),rgba(5,5,8,.85));
+    backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+    transition:opacity 0.8s ease,visibility 0.8s;
+  }
+  .overlay.hide{opacity:0;visibility:hidden;pointer-events:none}
+  
+  .title-group { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 25px; }
+  .title-en {
+    font-family: 'Julius Sans One', sans-serif; font-size: clamp(30px, 8.5vw, 52px);
+    font-weight: 400; letter-spacing: 0.5em; text-transform: uppercase;
+    background: linear-gradient(180deg, #f0dcc0 0%, #c9a87c 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    padding-left: 0.5em; line-height: 1.2;
+    filter: drop-shadow(0 0 20px rgba(200,170,130,.3));
+  }
+  .title-ru {
+    font-family: 'Jost', sans-serif; font-size: clamp(14px, 4.5vw, 22px);
+    font-weight: 300; letter-spacing: 0.55em; text-transform: uppercase;
+    color: #c9a87c; opacity: 0.9; padding-left: 0.55em;
+  }
+  .sigil { width: 40px; height: 1px; background: linear-gradient(90deg, transparent, #c9a87c, transparent); opacity: 0.6; margin: 15px 0; }
+  .sub-text {
+    font-family: 'Jost', sans-serif; font-size: 13px; line-height: 2.2;
+    letter-spacing: 0.15em; color: rgba(232, 230, 240, 0.7);
+    max-width: 320px; text-transform: lowercase; font-weight: 300;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.8);
+  }
+  .start-hint {
+    font-family: 'Jost', sans-serif; margin-top: 30px; font-size: 11px;
+    letter-spacing: 0.3em; text-transform: uppercase; color: rgba(232, 230, 240, 0.4);
+    animation: pulse 3s infinite ease-in-out;
+  }
+  @keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.8; } }
+
+  .footer {
+    position: absolute; bottom: calc(env(safe-area-inset-bottom, 0px) + 30px);
+    font-family: 'Jost', monospace; font-size: 10px; letter-spacing: 0.2em;
+    color: rgba(232, 230, 240, 0.3); text-transform: uppercase;
+  }
+
+  #lang-btn {
+    position: absolute; top: calc(env(safe-area-inset-top, 0px) + 20px); right: 20px;
+    padding: 6px 14px; border-radius: 20px; font-size: 12px; letter-spacing: 0.1em;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(201,168,124,0.3);
+    color: #c9a87c; cursor: pointer;
+  }
+
+  .menu-btn {
+    font-family: 'Jost', sans-serif; font-size: 15px; letter-spacing: 0.2em; text-transform: uppercase;
+    padding: 15px 30px; background: rgba(255,255,255,0.05); border: 1px solid rgba(201,168,124,0.5);
+    color: #c9a87c; border-radius: 30px; margin: 10px; width: 220px; transition: 0.2s;
+  }
+  .menu-btn:active { background: rgba(201,168,124,0.2); }
+
+  #about-screen .box {
+    background: rgba(10,10,15,0.8); border: 1px solid rgba(201,168,124,0.2);
+    padding: 30px 20px; border-radius: 12px; max-width: 340px;
+    font-size: 13px; line-height: 1.8; color: rgba(232,230,240,0.8);
+  }
+  #about-screen h2 { font-family: 'Jost'; font-weight: 300; color: #c9a87c; letter-spacing: 0.2em; margin-bottom: 15px; }
+  #about-screen a { color: #8fd3ff; text-decoration: none; display: inline-block; margin-top: 15px; padding: 8px 16px; border: 1px solid #8fd3ff; border-radius: 6px; }
+  
+  /* Level Clear Screen */
+  #level-clear-screen {
+    position: fixed; inset: 0; z-index: 25;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: transparent; 
+    opacity: 0; pointer-events: none; transition: opacity 1.5s ease;
+  }
+  #level-clear-screen.show { opacity: 1; pointer-events: auto; }
+  
+  .clear-title-group {
+    display: flex; flex-direction: column; align-items: center;
+    transition: transform 1.5s ease, margin 1.5s ease;
+  }
+  .clear-en {
+    font-family: 'Julius Sans One', sans-serif; font-size: clamp(20px, 6vw, 32px);
+    letter-spacing: 0.4em; text-transform: uppercase; color: #f0dcc0;
+    text-align: center; padding-left: 0.4em;
+    text-shadow: 0 0 30px rgba(0,0,0,1), 0 0 10px rgba(0,0,0,0.8);
+  }
+  .clear-ru {
+    font-family: 'Jost', sans-serif; font-size: clamp(12px, 4vw, 18px);
+    letter-spacing: 0.4em; text-transform: uppercase; color: #c9a87c;
+    text-align: center; margin-top: 15px; padding-left: 0.4em;
+    text-shadow: 0 0 30px rgba(0,0,0,1), 0 0 10px rgba(0,0,0,0.8);
+  }
+
+  /* Блок цитаты */
+  .quote-container {
+    margin-top: 40px;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 1.5s ease, transform 1.5s ease;
+    display: flex; flex-direction: column; align-items: center;
+    max-width: 85%;
+  }
+  .quote-container.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .quote-title {
+    font-family: 'Jost', sans-serif; font-size: 11px; letter-spacing: 0.4em;
+    text-transform: uppercase; color: rgba(201, 168, 124, 0.6); margin-bottom: 15px;
+  }
+  .quote-text {
+    font-family: 'Jost', sans-serif; font-size: clamp(14px, 4vw, 18px);
+    line-height: 1.8; font-weight: 300; color: rgba(232, 230, 240, 0.85);
+    text-align: center; font-style: italic;
+    text-shadow: 0 2px 15px rgba(0,0,0,1);
+  }
+
+  /* Кнопка принятия мудрости */
+  #accept-btn {
+    margin-top: 30px;
+    opacity: 0; pointer-events: none;
+    transform: translateY(10px);
+    transition: opacity 1.5s ease, transform 1.5s ease, background 0.2s;
+    font-family: 'Jost', sans-serif; font-size: 13px; letter-spacing: 0.2em; text-transform: uppercase;
+    padding: 12px 30px; background: rgba(0,0,0,0.6); border: 1px solid rgba(201,168,124,0.6);
+    color: #c9a87c; border-radius: 30px;
+    text-shadow: 0 0 10px #000;
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  }
+  #accept-btn.show {
+    opacity: 1; pointer-events: auto; transform: translateY(0);
+  }
+  #accept-btn:active { background: rgba(201,168,124,0.3); }
+
+  /* Оверлей для перехода */
+  #transition-overlay {
+    position: fixed; inset: 0; background: #050508; opacity: 0; pointer-events: none;
+    transition: opacity 1s ease; z-index: 28;
+  }
+  #transition-overlay.active { opacity: 1; pointer-events: auto; }
+
+  #toast{
+    position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
+    z-index:12;pointer-events:none;font-size:14px;letter-spacing:.25em;
+    color:#fff;opacity:0;transition:opacity 0.8s, transform 0.8s;
+    text-shadow:0 0 20px rgba(255,200,100,.8);white-space:nowrap;
+  }
+  #toast.on{opacity:1;transform:translate(-50%,-50%) scale(1.05);}
+
+  #mute{
+    position:fixed;z-index:15;right:20px;bottom:calc(env(safe-area-inset-bottom,0px) + 20px);
+    width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    background:rgba(255,255,255,.05);border:1px solid rgba(201,168,124,.2);
+    color:#c9a87c;font-size:16px;opacity:0;transition:opacity 1s;
+  }
+  #mute.on{opacity:1}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div class="top-row">
+    <div>
+      <div id="levelInfo">Уровень 1</div>
+      <div id="lives"></div>
+    </div>
+    <div style="text-align:right; display:flex; flex-direction:column; align-items:flex-end;">
+      <button id="pause-btn" class="icon-btn">II</button>
+      <div id="goalInfo" style="margin-top:8px;">Цель: 70%</div>
+      <div id="pctInfo">0%</div>
+    </div>
+  </div>
+  <div id="bar-container"><div id="bar"></div></div>
+</div>
+
+<div id="toast"></div>
+<button id="mute">♪</button>
+
+<!-- ЭКРАН ЗАСТАВКИ -->
+<div class="overlay" id="intro">
+  <button id="lang-btn">EN</button>
+  <div class="sigil"></div>
+  <div class="title-group">
+    <div class="title-en">SONG OF<br>ARRAKIS</div>
+    <div class="title-ru">Песнь Арракиса</div>
+  </div>
+  <div class="sigil"></div>
+  <div class="sub-text" id="intro-text">
+    веди полет орнитоптера по песку.<br>
+    рисуй линии в тишине —<br>
+    и пусть червь не почувствует дрожь.
+  </div>
+  <div class="start-hint" id="start-hint">коснись, чтобы начать</div>
+  <div class="footer">автор: Ratofsteel1984, 2026г</div>
+</div>
+
+<!-- ЭКРАН ПАУЗЫ -->
+<div class="overlay hide" id="pause-screen">
+  <h1 id="pause-title" style="font-family:'Jost';font-weight:300;letter-spacing:0.3em;margin-bottom:30px;color:#c9a87c;">ПАУЗА</h1>
+  <button class="menu-btn" id="resume-btn">Продолжить</button>
+  <button class="menu-btn" id="about-btn">Об игре</button>
+</div>
+
+<!-- ЭКРАН ОБ ИГРЕ -->
+<div class="overlay hide" id="about-screen">
+  <div class="box">
+    <h2 id="about-title">ОБ ИГРЕ</h2>
+    <p id="about-desc">Фанатский проект на стыке величайшей научной фантастики мира «Дюна» Герберта, киноэстетики Дени Вильнёва и жанра медитативных головоломок.</p>
+    <p style="margin-top:15px; color:#c9a87c;"><span id="about-author">Автор игры:</span> Ratofsteel1984</p>
+    <a href="https://vk.ru/club232125825" target="_blank" id="about-link">Перейти в группу VK</a>
+  </div>
+  <button class="menu-btn" id="close-about-btn" style="margin-top:20px;">Назад</button>
+</div>
+
+<!-- ЭКРАН ЗАВЕРШЕНИЯ УРОВНЯ -->
+<div id="level-clear-screen">
+  <div class="clear-title-group">
+    <div class="sigil" style="box-shadow: 0 0 20px #000;"></div>
+    <div class="clear-en" id="clear-en">SUNSET</div>
+    <div class="clear-ru" id="clear-ru">ЗАКАТ</div>
+    <div class="sigil" style="box-shadow: 0 0 20px #000;"></div>
+  </div>
+  
+  <div class="quote-container" id="quote-container">
+    <div class="quote-title" id="quote-title">МУДРОСТЬ ДЮНЫ</div>
+    <div class="quote-text" id="quote-text">"Тот, кто контролирует пряность, контролирует вселенную."</div>
+  </div>
+
+  <button id="accept-btn">Мудрость принята</button>
+</div>
+
+<!-- ОВЕРЛЕЙ ДЛЯ ПЕРЕХОДА -->
+<div id="transition-overlay"></div>
+
+<script>
+(function(){
+'use strict';
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d', { alpha: false });
+const barEl = document.getElementById('bar');
+const pctInfoEl = document.getElementById('pctInfo');
+const goalInfoEl = document.getElementById('goalInfo');
+const levelInfoEl = document.getElementById('levelInfo');
+const livesEl = document.getElementById('lives');
+const introEl = document.getElementById('intro');
+const hudEl = document.getElementById('hud');
+const muteEl = document.getElementById('mute');
+const toastEl = document.getElementById('toast');
+const pauseBtn = document.getElementById('pause-btn');
+const pauseScreen = document.getElementById('pause-screen');
+const aboutScreen = document.getElementById('about-screen');
+const clearScreen = document.getElementById('level-clear-screen');
+const transitionOverlay = document.getElementById('transition-overlay');
+const acceptBtn = document.getElementById('accept-btn');
+const quoteContainer = document.getElementById('quote-container');
+
+let W=0, H=0, DPR=1;
+let CELL=10, COLS=0, ROWS=0;
+const BORDER = 3;
+
+const LEVELS = [
+  { goal: 0.70, worms: 1, spices: 1, theme: 'sunset', nameEn: 'SUNSET IN THE DESERT', nameRu: 'ЗАКАТ В ПУСТЫНЕ', quoteEn: "He who controls the spice controls the universe.", quoteRu: "Тот, кто контролирует пряность, контролирует вселенную." },
+  { goal: 0.75, worms: 2, spices: 2, theme: 'night', nameEn: 'NIGHT OF ARRAKIS', nameRu: 'НОЧЬ АРРАКИСА', quoteEn: "I must not fear. Fear is the mind-killer.", quoteRu: "Я не должен бояться. Страх — убийца разума." },
+  { goal: 0.80, worms: 2, spices: 2, theme: 'canyon', nameEn: 'DEEP CANYON', nameRu: 'ГЛУБОКИЙ КАНЬОН', quoteEn: "Polish comes from the cities; wisdom from the desert.", quoteRu: "Изысканность приходит из городов, а мудрость — из пустыни." },
+  { goal: 0.85, worms: 3, spices: 3, theme: 'storm', nameEn: 'SANDSTORM', nameRu: 'ПЕСЧАНАЯ БУРЯ', quoteEn: "Fear is the little death that brings total obliteration.", quoteRu: "Страх — это малая смерть, влекущая за собой полное уничтожение." },
+  { goal: 0.88, worms: 3, spices: 3, theme: 'dawn', nameEn: 'COLD DAWN', nameRu: 'ХОЛОДНЫЙ РАССВЕТ', quoteEn: "The mystery of life isn't a problem to solve, but a reality to experience.", quoteRu: "Тайну жизни не нужно разгадывать, ее нужно прожить." },
+  { goal: 0.90, worms: 4, spices: 4, theme: 'midday', nameEn: 'BLAZING MIDDAY', nameRu: 'ПАЛЯЩИЙ ПОЛДЕНЬ', quoteEn: "He who can destroy a thing, controls a thing.", quoteRu: "Тот, кто может уничтожить вещь, контролирует её." },
+  { goal: 0.92, worms: 4, spices: 4, theme: 'twilight', nameEn: 'TWILIGHT SHADOWS', nameRu: 'СУМЕРЕЧНЫЕ ТЕНИ', quoteEn: "Dreams make good stories, but everything important happens when we're awake.", quoteRu: "Из снов получаются хорошие истории. Но все важное случается, когда мы бодрствуем." },
+  { goal: 0.94, worms: 5, spices: 4, theme: 'eclipse', nameEn: 'ECLIPSE', nameRu: 'ЗАТМЕНИЕ', quoteEn: "A beginning is the time for taking the most delicate care that the balances are correct.", quoteRu: "Начало — это время проявить величайшую заботу о том, чтобы все балансы были соблюдены." },
+  { goal: 0.96, worms: 5, spices: 5, theme: 'oasis', nameEn: 'HIDDEN OASIS', nameRu: 'СКРЫТЫЙ ОАЗИС', quoteEn: "The desert is a surgeon, cutting away the skin to reveal what lies beneath.", quoteRu: "Пустыня — хирург, срезающий кожу, чтобы показать, что таится под ней." },
+  { goal: 0.98, worms: 5, spices: 5, theme: 'sandstorm', nameEn: 'HEART OF THE DESERT', nameRu: 'СЕРДЦЕ ПУСТЫНИ', quoteEn: "Arrakis teaches the attitude of the knife - chopping off what's incomplete and saying: 'Now, it's complete because it's ended here.'", quoteRu: "Арракис учит отношению ножа — отсекать незавершенное и говорить: «Теперь это завершено, ибо закончилось здесь»." }
+];
+
+let level = 0;
+let state = 'intro'; 
+let lives = 3;
+let targetGoal = 0.7;
+
+let zoomLevel = 1.0;
+const ZOOM_TARGET = 3.5;
+let zoomStartTime = 0;
+let clearZoomTimer = 0;
+
+let grid=null, maskCv=null, maskCtx=null, maskImg=null;
+let picture=null, vigGrad=null;
+
+const player = { x:0, y:0, tx:0, ty:0, drawing:false, trail:[], trailSet:new Set(), path:[], safeX:0, safeY:0, lastIdx:-1 };
+let worms = [];
+let spices = [];
+let particles = [];
+let windSand = [];
+
+const clamp = (v,a,b)=> v<a?a:(v>b?b:v);
+
+let currentLang = 'ru';
+const uiTexts = {
+  ru: { pause: 'ПАУЗА', resume: 'Продолжить', about: 'Об игре', back: 'Назад', aboutTitle: 'ОБ ИГРЕ', author: 'Автор игры:', link: 'Перейти в группу VK', gameOver: 'пустыня забрала тебя...', drawLine: 'веди линию', level: 'Уровень', wisdom: 'МУДРОСТЬ ДЮНЫ', accept: 'Мудрость принята' },
+  en: { pause: 'PAUSE', resume: 'Resume', about: 'About Game', back: 'Back', aboutTitle: 'ABOUT GAME', author: 'Game author:', link: 'Visit VK Group', gameOver: 'the desert took you...', drawLine: 'draw the line', level: 'Level', wisdom: 'WISDOM OF DUNE', accept: 'Wisdom accepted' }
+};
+const introTexts = {
+  ru: { sub: "веди полет орнитоптера по песку.<br>рисуй линии в тишине —<br>и пусть червь не почувствует дрожь.", hint: "коснись, чтобы начать" },
+  en: { sub: "guide the ornithopter over the sand.<br>draw lines in silence —<br>and let the worm not feel the tremor.", hint: "touch to start" }
+};
+
+function updateLang() {
+  document.getElementById('intro-text').innerHTML = introTexts[currentLang].sub;
+  document.getElementById('start-hint').textContent = introTexts[currentLang].hint;
+  document.getElementById('lang-btn').textContent = currentLang === 'ru' ? 'EN' : 'RU';
+  
+  const ui = uiTexts[currentLang];
+  document.getElementById('pause-title').textContent = ui.pause;
+  document.getElementById('resume-btn').textContent = ui.resume;
+  document.getElementById('about-btn').textContent = ui.about;
+  document.getElementById('close-about-btn').textContent = ui.back;
+  document.getElementById('about-title').textContent = ui.aboutTitle;
+  document.getElementById('about-author').textContent = ui.author;
+  document.getElementById('about-link').textContent = ui.link;
+  levelInfoEl.textContent = ui.level + ' ' + (level + 1);
+  
+  document.getElementById('quote-title').textContent = ui.wisdom;
+  acceptBtn.textContent = ui.accept;
+}
+
+document.getElementById('lang-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  currentLang = currentLang === 'ru' ? 'en' : 'ru';
+  updateLang();
+});
+
+function drawParallaxIntro(time) {
+  const sky = ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0, '#1a1025'); sky.addColorStop(0.6, '#5c2a2a'); sky.addColorStop(1, '#2a1a15');
+  ctx.fillStyle = sky; ctx.fillRect(0,0,W,H);
+
+  for(let i=0;i<100;i++){
+    ctx.fillStyle = `rgba(255,255,255,${Math.random()*0.3})`;
+    ctx.fillRect((i*137)%W, (i*213)%H, 1, 1);
+  }
+
+  const sx = W*0.5, sy = H*0.4, sr = Math.min(W,H)*0.15;
+  const glow = ctx.createRadialGradient(sx,sy,0,sx,sy,sr*4);
+  glow.addColorStop(0, 'rgba(255,200,150,0.6)'); glow.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle=glow; ctx.beginPath(); ctx.arc(sx,sy,sr*4,0,Math.PI*2); ctx.fill();
+
+  const duneCols = ['#8a5a40','#6a4030','#4a2a20','#2a1a15'];
+  for(let i=0;i<4;i++){
+    const speed = 5 + i * 8;
+    const offset = time * speed;
+    const base = H*(0.5 + i*0.15);
+    const amp = H*(0.08 - i*0.015);
+    
+    ctx.beginPath(); 
+    ctx.moveTo(-20, H+20); 
+    ctx.lineTo(-20, base);
+    
+    for(let x=-20;x<=W+20;x+=5){
+      const waveX = x + offset;
+      const y = base + Math.sin(waveX*0.003+i)*amp + Math.sin(waveX*0.01+i*2)*amp*0.4;
+      ctx.lineTo(x,y);
+    }
+    ctx.lineTo(W+20,H+20); ctx.closePath();
+    ctx.fillStyle = duneCols[i]; ctx.fill();
+  }
+}
+
+function makePicture(theme, w, h){
+  const c = document.createElement('canvas');
+  c.width = Math.floor(w); c.height = Math.floor(h);
+  const g = c.getContext('2d');
+  
+  let skyTop, skyBottom, duneCols, sunCol;
+  if(theme === 'sunset'){ skyTop='#1a1025'; skyBottom='#5c2a2a'; duneCols=['#8a5a40','#6a4030','#4a2a20','#2a1a15']; sunCol='rgba(255,200,150,0.8)'; }
+  else if(theme === 'night'){ skyTop='#050510'; skyBottom='#151525'; duneCols=['#2a3040','#1c2030','#101520','#080a10']; sunCol='rgba(180,220,255,0.6)'; }
+  else if(theme === 'canyon'){ skyTop='#201510'; skyBottom='#4a2015'; duneCols=['#a05030','#803820','#602010','#301008']; sunCol='rgba(255,150,50,0.9)'; }
+  else if(theme === 'storm'){ skyTop='#1a1005'; skyBottom='#3a2010'; duneCols=['#7a5530','#503520','#301a10','#150a05']; sunCol='rgba(255,100,50,0.5)'; }
+  else if(theme === 'dawn'){ skyTop='#152030'; skyBottom='#2a4050'; duneCols=['#607080','#405060','#203040','#101820']; sunCol='rgba(200,240,255,0.8)'; }
+  else if(theme === 'midday'){ skyTop='#4a6a8a'; skyBottom='#a0c0d0'; duneCols=['#d0a870','#b08850','#806030','#503010']; sunCol='rgba(255,255,220,1.0)'; }
+  else if(theme === 'twilight'){ skyTop='#101525'; skyBottom='#302040'; duneCols=['#403060','#302050','#201040','#100520']; sunCol='rgba(200,150,255,0.6)'; }
+  else if(theme === 'eclipse'){ skyTop='#050508'; skyBottom='#151025'; duneCols=['#251520','#1a0f15','#0a0508','#050202']; sunCol='rgba(255,255,255,0.1)'; }
+  else if(theme === 'oasis'){ skyTop='#203025'; skyBottom='#507060'; duneCols=['#608060','#405040','#203020','#101510']; sunCol='rgba(200,255,200,0.8)'; }
+  else { skyTop='#3a2010'; skyBottom='#7a4020'; duneCols=['#8a5a30','#6a3a20','#4a2010','#2a0a05']; sunCol='rgba(255,180,100,0.5)'; }
+
+  const sky = g.createLinearGradient(0,0,0,h);
+  sky.addColorStop(0, skyTop); sky.addColorStop(1, skyBottom);
+  g.fillStyle = sky; g.fillRect(0,0,w,h);
+
+  if(theme==='night'||theme==='sunset'||theme==='twilight'||theme==='eclipse'){
+    for(let i=0;i<150;i++){
+      g.fillStyle=`rgba(255,255,255,${Math.random()*0.4})`;
+      g.fillRect(Math.random()*w, Math.random()*h*0.5, 1, 1);
+    }
+  }
+
+  const sx = w*0.5, sy = h*0.4, sr = Math.min(w,h)*0.15;
+  if(theme !== 'eclipse') {
+    const glow = g.createRadialGradient(sx,sy,0,sx,sy,sr*4);
+    glow.addColorStop(0, sunCol); glow.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle=glow; g.beginPath(); g.arc(sx,sy,sr*4,0,Math.PI*2); g.fill();
+  }
+
+  for(let i=0;i<4;i++){
+    const base = h*(0.5 + i*0.15);
+    const amp = h*(0.08 - i*0.015);
+    g.beginPath(); g.moveTo(-20, h+20); g.lineTo(-20, base);
+    for(let x=-20;x<=w+20;x+=5){
+      const y = base + Math.sin(x*0.005+i)*amp + Math.sin(x*0.015+i*2)*amp*0.4;
+      g.lineTo(x,y);
+    }
+    g.lineTo(w+20,h+20); g.closePath();
+    g.fillStyle = duneCols[i]; g.fill();
+  }
+  return c;
+}
+
+function spawnParticle(x,y,type){
+  if(particles.length > 1500) return;
+  let vx=0, vy=0, life=1, maxLife=1, size=1, color='#fff';
+  if(type === 'sand'){ vx=(Math.random()-0.5)*20; vy=-10-Math.random()*20; maxLife=1.5+Math.random(); size=1+Math.random()*2; color='rgba(201,168,124,0.6)'; }
+  else if(type === 'spice'){ vx=(Math.random()-0.5)*40; vy=-20-Math.random()*40; maxLife=0.8+Math.random()*0.5; size=1.5+Math.random()*1.5; color='rgba(255,215,0,0.9)'; }
+  else if(type === 'crumble'){ vx=(Math.random()-0.5)*60; vy=-5-Math.random()*30; maxLife=2+Math.random()*2; size=2+Math.random()*3; color='rgba(150,120,90,0.8)'; }
+  particles.push({x,y,vx,vy,life,maxLife,size,color});
+}
+
+function updateParticles(dt){
+  for(let i=particles.length-1;i>=0;i--){
+    const p = particles[i];
+    p.x += p.vx*dt; p.y += p.vy*dt; p.vy += 15*dt; p.life -= dt;
+    if(p.life <= 0) particles.splice(i,1);
+  }
+}
+
+function drawParticles(){
+  for(const p of particles){
+    ctx.globalAlpha = Math.max(0, p.life/p.maxLife);
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function initWindSand() {
+  windSand = [];
+  for(let i=0; i<70; i++) {
+    windSand.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      speed: 15 + Math.random() * 35,
+      size: 0.5 + Math.random() * 1.5,
+      alpha: 0.1 + Math.random() * 0.4,
+      phase: Math.random() * Math.PI * 2
+    });
+  }
+}
+
+function updateWindSand(dt, time) {
+  for(let p of windSand) {
+    p.x += p.speed * dt;
+    p.y += Math.sin(time + p.phase) * 5 * dt; 
+    if(p.x > W + 10) {
+      p.x = -10;
+      p.y = Math.random() * H;
+    }
+  }
+}
+
+function drawWindSand() {
+  for(let p of windSand) {
+    ctx.fillStyle = `rgba(201,168,124,${p.alpha})`;
+    ctx.fillRect(p.x, p.y, p.size, p.size);
+  }
+}
+
+function init(){
+  DPR = Math.min(window.devicePixelRatio||1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = Math.floor(W*DPR); canvas.height = Math.floor(H*DPR);
+  canvas.style.width = W+'px'; canvas.style.height = H+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+
+  CELL = Math.max(7, Math.round(Math.min(W,H)/55));
+  COLS = Math.ceil(W/CELL) + 1; ROWS = Math.ceil(H/CELL) + 1;
+
+  maskCv = document.createElement('canvas');
+  maskCv.width = COLS; maskCv.height = ROWS;
+  maskCtx = maskCv.getContext('2d');
+  maskImg = maskCtx.createImageData(COLS,ROWS);
+  grid = new Uint8Array(COLS*ROWS);
+  
+  vigGrad = ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.3,W/2,H/2,Math.max(W,H)*0.8);
+  vigGrad.addColorStop(0,'rgba(0,0,0,0)'); vigGrad.addColorStop(1,'rgba(0,0,0,0.7)');
+
+  buildHearts();
+  initWindSand();
+  loadLevel(0);
+  updateLang();
+}
+
+function loadLevel(lvl){
+  level = lvl;
+  const conf = LEVELS[level];
+  targetGoal = conf.goal;
+  
+  levelInfoEl.textContent = uiTexts[currentLang].level + ' ' + (level+1);
+  goalInfoEl.textContent = Math.round(targetGoal*100) + '%';
+  
+  picture = makePicture(conf.theme, W, H);
+  particles.length = 0;
+
+  for(let y=0;y<ROWS;y++){
+    for(let x=0;x<COLS;x++){
+      const b = (x<BORDER || y<BORDER || x>=COLS-BORDER || y>=ROWS-BORDER);
+      grid[y*COLS+x] = b ? 1 : 0;
+    }
+  }
+
+  player.x = player.tx = W*0.5;
+  player.y = player.ty = Math.floor(CELL*BORDER*0.5);
+  player.safeX = player.x; player.safeY = player.y;
+  player.drawing = false; player.trail.length = 0; player.trailSet.clear(); player.path.length = 0;
+
+  spices = [];
+  for(let i=0; i<conf.spices; i++){
+    spices.push({ x: W*0.2 + Math.random()*W*0.6, y: H*0.3 + Math.random()*H*0.5, r: CELL*2.5, pulse: Math.random()*10 });
+  }
+
+  worms = [];
+  for(let i=0; i<conf.worms; i++){
+    let wx, wy, distOk=false;
+    while(!distOk){
+      wx = W*0.2 + Math.random()*W*0.6;
+      wy = H*0.4 + Math.random()*H*0.4;
+      if(Math.hypot(wx-player.x, wy-player.y) > Math.min(W,H)*0.4) distOk=true;
+    }
+    worms.push({
+      x: wx, y: wy, lastX: wx, lastY: wy, vx: 0, vy: 0, 
+      speed: 30 + level*4 + Math.random()*10,
+      r: CELL*1.5, phase: Math.random()*100,
+      state: 'wander', luredTimer: 0, targetSpice: null, ignoreSpice: null, ignoreTimer: 0,
+      targetX: wx, targetY: wy, targetTimer: 0
+    });
+  }
+
+  updateProgress();
+}
+
+function isClosedPx(x,y){
+  const cx = Math.floor(x/CELL), cy = Math.floor(y/CELL);
+  if(cx<0||cy<0||cx>=COLS||cy>=ROWS) return false;
+  return grid[cy*COLS+cx] === 0;
+}
+
+function getOpenFraction(){
+  let open=0, total=0;
+  for(let y=BORDER; y<ROWS-BORDER; y++){
+    for(let x=BORDER; x<COLS-BORDER; x++){ total++; if(grid[y*COLS+x]) open++; }
+  }
+  return total ? open/total : 0;
+}
+
+function updateProgress(){
+  const p = getOpenFraction();
+  barEl.style.width = Math.min(100, (p/targetGoal)*100) + '%';
+  pctInfoEl.textContent = Math.round(p*100) + '%';
+}
+
+function updateMask(time){
+  const d = maskImg.data;
+  for(let i=0;i<COLS*ROWS;i++){
+    const cx = i % COLS, cy = Math.floor(i / COLS);
+    const vGrad = cy / ROWS;
+    let r = 46 - vGrad * 24, g = 34 - vGrad * 18, b = 26 - vGrad * 14;
+    const ripple = Math.sin(cx * 0.2 + time * 1.2 + cy * 0.05) * 8;
+    r += ripple; g += ripple * 0.8; b += ripple * 0.6;
+    const noise = (Math.random() - 0.5) * 6;
+    r += noise; g += noise; b += noise;
+
+    d[i*4] = r; d[i*4+1] = g; d[i*4+2] = b;
+    d[i*4+3] = grid[i] ? 0 : 255; 
+  }
+  maskCtx.putImageData(maskImg, 0, 0);
+}
+
+function updatePlayer(dt){
+  const dx = player.tx - player.x, dy = player.ty - player.y;
+  const dist = Math.hypot(dx,dy);
+  if(dist < 0.6) return;
+
+  const step = Math.min(dist, 750*dt);
+  const nx = player.x + dx/dist*step;
+  const ny = player.y + dy/dist*step;
+
+  const n = Math.max(1, Math.ceil(step/(CELL*0.5)));
+  for(let i=1;i<=n;i++){
+    if(stepPlayer(player.x + (nx-player.x)*i/n, player.y + (ny-player.y)*i/n)) break;
+  }
+}
+
+function stepPlayer(px,py){
+  px = clamp(px, 1, W-1); py = clamp(py, 1, H-1);
+  const cx = clamp(Math.floor(px/CELL), 0, COLS-1);
+  const cy = clamp(Math.floor(py/CELL), 0, ROWS-1);
+  const idx = cy*COLS + cx;
+
+  if(grid[idx] === 1){
+    player.x = px; player.y = py;
+    player.safeX = px; player.safeY = py;
+    if(player.drawing){ completeTrail(); return true; }
+    return false;
+  }
+
+  if(!player.drawing){
+    player.drawing = true;
+    player.trail.length = 0; player.trailSet.clear();
+    player.path.length = 0; player.lastIdx = -1;
+  }
+
+  player.x = px; player.y = py;
+  if(Math.random()<0.4) spawnParticle(px+(Math.random()-0.5)*CELL, py+(Math.random()-0.5)*CELL, 'sand');
+
+  const last = player.path[player.path.length-1];
+  if(!last || Math.hypot(px-last.x, py-last.y) > CELL*0.4){ player.path.push({x:px, y:py}); }
+
+  if(idx !== player.lastIdx){
+    if(player.trailSet.has(idx)){ completeTrail(); return true; }
+    player.trailSet.add(idx); player.trail.push(idx); player.lastIdx = idx;
+  }
+  return false;
+}
+
+function completeTrail(){
+  for(let i=0;i<player.trail.length;i++){
+    const idx = player.trail[i];
+    if(grid[idx] === 0){
+      grid[idx] = 1;
+      if(Math.random()<0.3) spawnParticle((idx%COLS)*CELL, Math.floor(idx/COLS)*CELL, 'crumble');
+    }
+  }
+
+  player.trail.length = 0; player.trailSet.clear();
+  player.path.length = 0; player.lastIdx = -1; player.drawing = false;
+
+  revealRegions();
+  updateProgress();
+  playCompleteSound();
+
+  if(getOpenFraction() >= targetGoal) levelComplete();
+}
+
+function revealRegions(){
+  const visited = new Uint8Array(COLS*ROWS);
+  const stack = [];
+  for(const w of worms){
+    const cx = Math.floor(w.x/CELL), cy = Math.floor(w.y/CELL);
+    for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){
+      const i = (cy+dy)*COLS + (cx+dx);
+      if(i>=0 && i<COLS*ROWS && !visited[i]){ visited[i]=1; stack.push(i); }
+    }
+  }
+
+  while(stack.length){
+    const i = stack.pop();
+    const x = i % COLS, y = Math.floor(i/COLS);
+    if(x>0)      { const j=i-1;    if(grid[j]===0 && !visited[j]){ visited[j]=1; stack.push(j); } }
+    if(x<COLS-1) { const j=i+1;    if(grid[j]===0 && !visited[j]){ visited[j]=1; stack.push(j); } }
+    if(y>0)      { const j=i-COLS; if(grid[j]===0 && !visited[j]){ visited[j]=1; stack.push(j); } }
+    if(y<ROWS-1) { const j=i+COLS; if(grid[j]===0 && !visited[j]){ visited[j]=1; stack.push(j); } }
+  }
+
+  for(let i=0;i<grid.length;i++){
+    if(grid[i]===0 && !visited[i]){
+      grid[i]=1;
+      if(Math.random()<0.1) spawnParticle((i%COLS)*CELL, Math.floor(i/COLS)*CELL, 'crumble');
+    }
+  }
+}
+
+function updateWorms(dt){
+  const t = performance.now()/1000;
+  for(let i=0; i<worms.length; i++){
+    let w = worms[i];
+    w.phase += dt;
+    if(w.ignoreTimer > 0) w.ignoreTimer -= dt;
+
+    if(w.state === 'lured'){
+      w.luredTimer -= dt;
+      const angle = w.phase * 6;
+      w.x = w.targetSpice.x + Math.cos(angle) * CELL * 1.5;
+      w.y = w.targetSpice.y + Math.sin(angle) * CELL * 1.5;
+      if(Math.random()<0.6) spawnParticle(w.x+(Math.random()-0.5)*CELL*2, w.y+(Math.random()-0.5)*CELL*2, 'sand');
+
+      if(w.luredTimer <= 0){
+        w.state = 'wander';
+        w.ignoreSpice = w.targetSpice;
+        w.ignoreTimer = 6;
+        w.targetSpice = null;
+        const ang = Math.random() * Math.PI * 2;
+        w.vx = Math.cos(ang) * w.speed * 1.5;
+        w.vy = Math.sin(ang) * w.speed * 1.5;
+      }
+    } else {
+      let closestSpice = null, minDist = CELL*12;
+      for(const s of spices){
+        if(s === w.ignoreSpice && w.ignoreTimer > 0) continue;
+        const d = Math.hypot(s.x-w.x, s.y-w.y);
+        if(d < minDist){ minDist = d; closestSpice = s; }
+      }
+
+      if(closestSpice){
+        w.state = 'chase';
+        const dx = closestSpice.x - w.x, dy = closestSpice.y - w.y;
+        const d = Math.hypot(dx,dy)||1;
+        const targetVx = (dx/d) * w.speed * 1.6;
+        const targetVy = (dy/d) * w.speed * 1.6;
+        w.vx += (targetVx - w.vx) * 4 * dt;
+        w.vy += (targetVy - w.vy) * 4 * dt;
+        if(d < CELL * 2){
+          w.state = 'lured';
+          w.luredTimer = 2.0 + Math.random()*2;
+          w.targetSpice = closestSpice;
+        }
+      } else {
+        w.state = 'wander';
+        w.targetTimer -= dt;
+        const distToTarget = Math.hypot(w.targetX - w.x, w.targetY - w.y);
+        
+        let tooClose = false;
+        for(let j=0; j<worms.length; j++){
+            if(i===j) continue;
+            if(Math.hypot(worms[j].x - w.x, worms[j].y - w.y) < CELL*5) tooClose = true;
+        }
+
+        if(w.targetTimer <= 0 || distToTarget < CELL * 3 || tooClose){
+            if(Math.random() < 0.5) {
+                w.targetX = Math.random() < 0.5 ? CELL*5 : W - CELL*5;
+                w.targetY = CELL*5 + Math.random() * (H - CELL*10);
+            } else {
+                w.targetX = CELL*5 + Math.random() * (W - CELL*10);
+                w.targetY = Math.random() < 0.5 ? CELL*5 : H - CELL*5;
+            }
+            w.targetX += (Math.random()-0.5) * W * 0.2;
+            w.targetY += (Math.random()-0.5) * H * 0.2;
+            w.targetTimer = 4 + Math.random() * 6;
+        }
+
+        const dx = w.targetX - w.x, dy = w.targetY - w.y;
+        const d = Math.hypot(dx,dy)||1;
+        const targetVx = (dx/d) * w.speed;
+        const targetVy = (dy/d) * w.speed;
+        w.vx += (targetVx - w.vx) * 1.5 * dt;
+        w.vy += (targetVy - w.vy) * 1.5 * dt;
+      }
+
+      let sepX = 0, sepY = 0;
+      for(let j=0; j<worms.length; j++){
+        if(i===j) continue;
+        let dx = w.x - worms[j].x;
+        let dy = w.y - worms[j].y;
+        let d = Math.hypot(dx,dy);
+        if(d < CELL * 8 && d > 0){
+           sepX += (dx / d) * (CELL * 8 - d) * 0.15;
+           sepY += (dy / d) * (CELL * 8 - d) * 0.15;
+        }
+      }
+      w.vx += sepX * dt * 60;
+      w.vy += sepY * dt * 60;
+
+      const nx = w.x + w.vx*dt;
+      if(isClosedPx(nx, w.y)) w.x = nx; else { w.vx = -w.vx; w.targetTimer = 0; }
+      const ny = w.y + w.vy*dt;
+      if(isClosedPx(w.x, ny)) w.y = ny; else { w.vy = -w.vy; w.targetTimer = 0; }
+      if(Math.random()<0.3) spawnParticle(w.x+(Math.random()-0.5)*CELL*2, w.y+(Math.random()-0.5)*CELL*2, 'sand');
+    }
+
+    if(Math.abs(w.x - w.lastX) < 0.1 && Math.abs(w.y - w.lastY) < 0.1){
+      w.vx += (Math.random() - 0.5) * 150; w.vy += (Math.random() - 0.5) * 150; w.targetTimer = 0;
+    }
+    w.lastX = w.x; w.lastY = w.y;
+  }
+
+  if(player.drawing){
+    for(const w of worms){
+      if(Math.hypot(w.x-player.x, w.y-player.y) < w.r + CELL){
+        hit(); return;
+      }
+      const c0x = Math.floor((w.x-w.r)/CELL), c1x = Math.floor((w.x+w.r)/CELL);
+      const c0y = Math.floor((w.y-w.r)/CELL), c1y = Math.floor((w.y+w.r)/CELL);
+      for(let cy=c0y; cy<=c1y; cy++){
+        for(let cx=c0x; cx<=c1x; cx++){
+          if(cx<0||cy<0||cx>=COLS||cy>=ROWS) continue;
+          if(player.trailSet.has(cy*COLS+cx)){
+            if(Math.hypot((cx+0.5)*CELL-w.x, (cy+0.5)*CELL-w.y) < w.r + CELL*0.6){
+              hit(); return;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+function updateSpices(dt){
+  for(const s of spices){
+    s.pulse += dt*2;
+    if(Math.random()<0.1) spawnParticle(s.x+(Math.random()-0.5)*s.r*2, s.y+(Math.random()-0.5)*s.r*2, 'spice');
+  }
+}
+
+function hit(){
+  lives--;
+  buildHearts();
+  player.drawing = false; player.trail.length = 0; player.trailSet.clear(); player.path.length = 0;
+  player.x = player.tx = player.safeX; player.y = player.ty = player.safeY;
+  playHitSound();
+
+  if(lives <= 0){
+    state = 'wait';
+    showToast(uiTexts[currentLang].gameOver, 2200);
+    setTimeout(()=>{ 
+        lives=3; buildHearts(); loadLevel(0); state='play'; 
+    }, 2300);
+  }
+}
+
+function buildHearts(){
+  livesEl.innerHTML = '';
+  for(let i=0;i<3;i++){
+    const d = document.createElement('div');
+    d.className = 'grain' + (i<lives?'':' off');
+    livesEl.appendChild(d);
+  }
+}
+
+function levelComplete(){
+  state = 'level_clear';
+  clearZoomTimer = 0;
+  hudEl.classList.remove('on');
+  muteEl.classList.remove('on');
+  pauseBtn.style.display = 'none';
+  
+  quoteContainer.classList.remove('show');
+  acceptBtn.classList.remove('show');
+
+  const lvl = LEVELS[level];
+  
+  if (level < LEVELS.length - 1) {
+    document.getElementById('clear-en').textContent = lvl.nameEn;
+    document.getElementById('clear-ru').textContent = lvl.nameRu;
+    document.getElementById('quote-text').textContent = currentLang === 'ru' ? '"'+lvl.quoteRu+'"' : '"'+lvl.quoteEn+'"';
+    
+    clearScreen.classList.add('show');
+    
+    setTimeout(() => {
+      quoteContainer.classList.add('show');
+      setTimeout(() => {
+        acceptBtn.classList.add('show');
+      }, 1500);
+    }, 3500);
+
+  } else {
+    document.getElementById('clear-en').textContent = "YOU HAVE KNOWN THE DESERT";
+    document.getElementById('clear-ru').textContent = "ТЫ ПОЗНАЛ ПУСТЫНЮ..";
+    document.getElementById('quote-text').textContent = currentLang === 'ru' ? '"'+lvl.quoteRu+'"' : '"'+lvl.quoteEn+'"';
+    
+    clearScreen.classList.add('show');
+    setTimeout(() => {
+      quoteContainer.classList.add('show');
+      setTimeout(() => {
+        acceptBtn.classList.add('show');
+      }, 1500);
+    }, 3500);
+  }
+}
+
+acceptBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if(state !== 'level_clear') return;
+  
+  acceptBtn.classList.remove('show');
+  quoteContainer.classList.remove('show');
+  clearScreen.classList.remove('show');
+  
+  setTimeout(() => {
+    transitionOverlay.classList.add('active');
+    
+    setTimeout(() => {
+      if (level < LEVELS.length - 1) {
+        level++;
+        loadLevel(level);
+      } else {
+        level = 0;
+        loadLevel(0);
+        state = 'intro';
+      }
+      
+      transitionOverlay.classList.remove('active');
+      
+      if (state !== 'intro') {
+        state = 'play';
+        hudEl.classList.add('on');
+        muteEl.classList.add('on');
+        pauseBtn.style.display = 'flex';
+      } else {
+        introEl.classList.remove('hide');
+      }
+    }, 1000);
+  }, 500);
+});
+
+function showToast(text, ms){
+  toastEl.textContent = text;
+  toastEl.classList.add('on');
+  setTimeout(()=> toastEl.classList.remove('on'), ms);
+}
+
+function render(time){
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+
+  if(state === 'zooming') {
+    const elapsed = performance.now() - zoomStartTime;
+    zoomLevel = 1.0 + (ZOOM_TARGET - 1.0) * Math.min(1, elapsed / 1500); 
+    ctx.translate(W/2, H/2);
+    ctx.scale(zoomLevel, zoomLevel);
+    ctx.translate(-W/2, -H/2);
+  }
+
+  if(state === 'level_clear') {
+    const z = 1.0 - Math.min(0.15, clearZoomTimer * 0.1);
+    ctx.translate(W/2, H/2);
+    ctx.scale(z, z);
+    ctx.translate(-W/2, -H/2);
+  }
+
+  if (state === 'intro' || state === 'zooming') {
+    drawParallaxIntro(time);
+  } else if (picture) {
+    ctx.drawImage(picture, 0, 0, W, H);
+  }
+
+  if (state === 'play' || state === 'pause' || state === 'wait') {
+    updateMask(time);
+    ctx.imageSmoothingEnabled = true;
+    ctx.filter = 'blur(3px)'; 
+    ctx.drawImage(maskCv, -2, -2, W+4, H+4);
+    ctx.filter = 'none';
+
+    for(const s of spices){
+      const rad = s.r * (1 + Math.sin(s.pulse)*0.1);
+      const grad = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, rad*2.5);
+      grad.addColorStop(0, 'rgba(255, 215, 0, 0.4)');
+      grad.addColorStop(0.5, 'rgba(200, 150, 0, 0.1)');
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(s.x, s.y, rad*2.5, 0, Math.PI*2); ctx.fill();
+    }
+
+    if(player.drawing && player.path.length > 1){
+      ctx.beginPath();
+      ctx.moveTo(player.path[0].x, player.path[0].y);
+      for(let i=1;i<player.path.length;i++){
+        const jitter = Math.sin(performance.now()*0.02 + i)*1.5;
+        ctx.lineTo(player.path[i].x + jitter, player.path[i].y + jitter);
+      }
+      ctx.lineTo(player.x, player.y);
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.strokeStyle = 'rgba(143,211,255,0.3)';
+      ctx.lineWidth = CELL*1.5;
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(220,245,255,0.9)';
+      ctx.lineWidth = CELL*0.3;
+      ctx.stroke();
+    }
+
+    drawParticles();
+
+    for(const w of worms){
+      const pulse = 1 + Math.sin(time*3 + w.phase)*0.15;
+      const grad = ctx.createRadialGradient(w.x, w.y, 0, w.x, w.y, w.r*3*pulse);
+      grad.addColorStop(0, 'rgba(0,0,0,0.8)');
+      grad.addColorStop(0.3, 'rgba(40,25,15,0.6)');
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(w.x, w.y, w.r*3*pulse, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = 'rgba(201,168,124,0.4)';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(w.x, w.y, w.r*1.5*pulse, 0, Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(w.x, w.y, w.r*2.5*pulse, 0, Math.PI*2); ctx.stroke();
+    }
+
+    const pr = CELL * 0.6 * (1 + Math.sin(time*3)*0.1);
+    const pg = ctx.createRadialGradient(player.x, player.y, 0, player.x, player.y, pr*3);
+    pg.addColorStop(0, 'rgba(220,245,255,0.9)');
+    pg.addColorStop(1, 'rgba(143,211,255,0)');
+    ctx.fillStyle = pg;
+    ctx.beginPath(); ctx.arc(player.x, player.y, pr*3, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.beginPath(); ctx.arc(player.x, player.y, pr*0.5, 0, Math.PI*2); ctx.fill();
+  }
+
+  if (state !== 'intro' && state !== 'zooming') {
+    ctx.fillStyle = vigGrad;
+    ctx.fillRect(0,0,W,H);
+  }
+
+  drawWindSand();
+}
+
+let lastT = 0;
+function loop(t){
+  if(!lastT) lastT = t;
+  let dt = (t - lastT)/1000; lastT = t;
+  if(dt > 0.05) dt = 0.05;
+
+  updateWindSand(dt, t / 1000);
+
+  if(state === 'play'){
+    updatePlayer(dt);
+    updateWorms(dt);
+    updateSpices(dt);
+    updateParticles(dt);
+    updateThreatSound();
+  } else if (state === 'zooming') {
+    if (zoomLevel >= ZOOM_TARGET - 0.05) {
+      state = 'play';
+      hudEl.classList.add('on');
+      muteEl.classList.add('on');
+      pauseBtn.style.display = 'flex';
+      showToast(uiTexts[currentLang].drawLine, 2000);
+    }
+  } else if (state === 'level_clear') {
+    clearZoomTimer += dt;
+  } else {
+    updateParticles(dt);
+  }
+
+  render(t / 1000);
+  requestAnimationFrame(loop);
+}
+
+let pointerActive = false;
+canvas.addEventListener('pointerdown', e=>{
+  if(state !== 'play') return;
+  e.preventDefault(); pointerActive = true;
+  try { canvas.setPointerCapture(e.pointerId); } catch(_){}
+  player.tx = e.clientX; player.ty = e.clientY;
+}, {passive:false});
+canvas.addEventListener('pointermove', e=>{
+  if(!pointerActive) return; e.preventDefault();
+  player.tx = e.clientX; player.ty = e.clientY;
+}, {passive:false});
+canvas.addEventListener('pointerup', ()=> pointerActive = false);
+canvas.addEventListener('pointercancel', ()=> pointerActive = false);
+
+// ИСПОЛЬЗУЕМ CLICK ВМЕСТО POINTERDOWN ДЛЯ ВСЕХ КНОПОК МЕНЮ
+pauseBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if(state === 'play') {
+    state = 'pause';
+    pauseScreen.classList.remove('hide');
+  }
+});
+document.getElementById('resume-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  state = 'play';
+  pauseScreen.classList.add('hide');
+});
+document.getElementById('about-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  pauseScreen.classList.add('hide');
+  aboutScreen.classList.remove('hide');
+});
+document.getElementById('close-about-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  aboutScreen.classList.add('hide');
+  pauseScreen.classList.remove('hide');
+});
+document.getElementById('about-link').addEventListener('click', (e) => {
+  e.stopPropagation();
+});
+
+let actx=null, master=null, droneGain=null, droneOscs=[], windGain=null, windSrc=null, filter=null;
+let audioOn = true;
+
+function startAudio(){
+  if(actx) { if(actx.state==='suspended') actx.resume(); return; }
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if(!AC) return;
+  actx = new AC();
+
+  master = actx.createGain(); master.gain.value = 0;
+  master.connect(actx.destination);
+  master.gain.setTargetAtTime(0.8, actx.currentTime, 2);
+
+  droneGain = actx.createGain(); droneGain.gain.value = 0.08;
+  droneGain.connect(master);
+  filter = actx.createBiquadFilter(); filter.type='lowpass'; filter.frequency.value=180;
+  filter.connect(droneGain);
+
+  droneOscs = [55, 82.4, 110].map(f => {
+    const o = actx.createOscillator(); o.type='sine'; o.frequency.value=f;
+    const g = actx.createGain(); g.gain.value = f===55?0.6:0.3;
+    o.connect(g); g.connect(filter); o.start();
+    return o;
+  });
+
+  const bufSize = actx.sampleRate*4;
+  const buf = actx.createBuffer(1, bufSize, actx.sampleRate);
+  const data = buf.getChannelData(0);
+  for(let i=0;i<bufSize;i++) data[i] = (Math.random()*2-1)*0.5;
+  
+  windSrc = actx.createBufferSource(); windSrc.buffer=buf; windSrc.loop=true;
+  const bp = actx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=400; bp.Q.value=0.8;
+  windGain = actx.createGain(); windGain.gain.value=0.04;
+  windSrc.connect(bp); bp.connect(windGain); windGain.connect(master); windSrc.start();
+  
+  scheduleAmbient();
+}
+
+function playCompleteSound() {
+  if (!actx || !audioOn) return;
+  const t = actx.currentTime;
+  const osc1 = actx.createOscillator();
+  osc1.type = 'sine';
+  osc1.frequency.setValueAtTime(150, t);
+  osc1.frequency.exponentialRampToValueAtTime(80, t + 1.2);
+  const gain1 = actx.createGain();
+  gain1.gain.setValueAtTime(0, t);
+  gain1.gain.linearRampToValueAtTime(0.04, t + 0.1);
+  gain1.gain.exponentialRampToValueAtTime(0.001, t + 1.5);
+  osc1.connect(gain1).connect(master);
+  osc1.start(t); osc1.stop(t + 1.5);
+
+  const osc2 = actx.createOscillator();
+  osc2.type = 'sine';
+  osc2.frequency.setValueAtTime(440, t);
+  const gain2 = actx.createGain();
+  gain2.gain.setValueAtTime(0, t);
+  gain2.gain.linearRampToValueAtTime(0.015, t + 0.05);
+  gain2.gain.exponentialRampToValueAtTime(0.001, t + 1.0);
+  osc2.connect(gain2).connect(master);
+  osc2.start(t); osc2.stop(t + 1.0);
+}
+
+function playHitSound() {
+  if (!actx || !audioOn) return;
+  const t = actx.currentTime;
+  const osc = actx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(100, t);
+  osc.frequency.exponentialRampToValueAtTime(20, t + 0.5);
+  const gain = actx.createGain();
+  gain.gain.setValueAtTime(0.2, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 1);
+  osc.connect(gain).connect(master);
+  osc.start(t); osc.stop(t + 1);
+}
+
+function scheduleAmbient(){
+  setTimeout(()=>{
+    if(actx && audioOn && state==='play'){
+      const t = actx.currentTime;
+      const o = actx.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(60,t); o.frequency.exponentialRampToValueAtTime(30,t+0.8);
+      const g = actx.createGain(); g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(0.15,t+0.05); g.gain.exponentialRampToValueAtTime(0.001,t+2);
+      o.connect(g); g.connect(master); o.start(t); o.stop(t+2);
+    }
+    scheduleAmbient();
+  }, 4000 + Math.random()*6000);
+}
+
+function updateThreatSound(){
+  if(!actx || !audioOn || !worms.length) return;
+  let maxThreat = 0;
+  for(const w of worms){
+    const d = Math.hypot(w.x-player.x, w.y-player.y);
+    const prox = clamp(1 - d/(Math.min(W,H)*0.4), 0, 1);
+    if(prox > maxThreat) maxThreat = prox;
+  }
+  const targetFreq = 180 - maxThreat*100;
+  filter.frequency.setTargetAtTime(targetFreq, actx.currentTime, 0.2);
+  windGain.gain.setTargetAtTime(0.04 + maxThreat*0.1, actx.currentTime, 0.3);
+}
+
+function startGame(){
+  introEl.classList.add('hide');
+  startAudio();
+  
+  state = 'zooming';
+  zoomStartTime = performance.now();
+  zoomLevel = 1.0;
+}
+
+introEl.addEventListener('pointerdown', e=>{ 
+  if(e.target.tagName.toLowerCase() === 'button' || e.target.tagName.toLowerCase() === 'a') return;
+  if(state === 'intro') {
+    e.preventDefault(); 
+    startGame(); 
+  }
+}, {passive:false});
+
+muteEl.addEventListener('click', e=>{
+  e.stopPropagation();
+  audioOn = !audioOn;
+  if(master && actx) master.gain.setTargetAtTime(audioOn?0.8:0, actx.currentTime, 0.3);
+  muteEl.textContent = audioOn ? '♪' : '✕';
+});
+
+let rTimer=null, lw=0, lh=0;
+window.addEventListener('resize', ()=>{
+  clearTimeout(rTimer);
+  rTimer = setTimeout(()=>{
+    if(Math.abs(window.innerWidth-lw)>150 || Math.abs(window.innerHeight-lh)>150){
+      init(); lw=window.innerWidth; lh=window.innerHeight;
+    }
+  }, 350);
+});
+
+init();
+lw=window.innerWidth; lh=window.innerHeight;
+requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>
